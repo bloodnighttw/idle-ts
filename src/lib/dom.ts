@@ -11,6 +11,14 @@ interface Fiber extends BasicOUOElement{
     effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
 }
 
+interface HostFiber extends Fiber{
+    type: string;
+}
+
+interface FunctionFiber extends Fiber{
+    type: Function;
+}
+
 /* The loop will run when idle */
 
 let nextUnitOfWork: Fiber | null = null;
@@ -28,12 +36,25 @@ function commitRoot(){
     wipRoot = null;
 }
 
+function commitDeletion(fiber: Fiber, parentDom?: DOM){
+    if(fiber.dom){
+        fiber.dom.parentNode?.removeChild(fiber.dom);
+    } else {
+        commitDeletion(fiber.child!, parentDom);
+    }
+}
+
 function commitWork(fiber?: Fiber){
     if(!fiber){
         return;
     }
 
-    const domParent = fiber.parent?.dom!;
+    let domParentFiber = fiber.parent;
+    while(!domParentFiber?.dom){
+        domParentFiber = domParentFiber?.parent;
+    }
+
+    const domParent = domParentFiber!.dom;
 
     if(fiber.effectTag === "PLACEMENT" && fiber.dom){
         domParent.appendChild(fiber.dom);
@@ -41,7 +62,7 @@ function commitWork(fiber?: Fiber){
         // update the dom
         updateDom(fiber.dom, fiber.alternate!.props, fiber.props);
     } else if(fiber.effectTag === "DELETION"){
-        domParent.removeChild(fiber.dom!);
+        commitDeletion(fiber, domParent);
     }
 
 
@@ -119,15 +140,30 @@ function fiberLoop(timestamp: number){
 // ( react uses a scheduler package based on requestAnimationFrame to handle this)
 requestAnimationFrame(fiberLoop);
 
-
-
-function performUnitOfWork(fiber: Fiber){
+function updateHostComponent(fiber: HostFiber){
 
     if(!fiber.dom){
         fiber.dom = createDom(fiber);
     }
 
     reconcileFiber(fiber);
+}
+
+
+function updateFunctionComponent(fiber: FunctionFiber){
+
+    const children = [fiber.type(fiber.props)];
+    reconcileFiber(fiber, children);
+}
+
+
+function performUnitOfWork(fiber: Fiber){
+
+    if(fiber.type instanceof Function){
+        updateFunctionComponent(fiber as FunctionFiber);
+    } else {
+        updateHostComponent(fiber as HostFiber);
+    }
 
     // 1. If there is a child, return the child
     if(fiber.child){
@@ -147,9 +183,9 @@ function performUnitOfWork(fiber: Fiber){
     return null;
 }
 
-function reconcileFiber(wipFiber: Fiber){
+function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
     const oldFiber = wipFiber.alternate?.child;
-    const children = wipFiber.props.children;
+    children = children ?? wipFiber.props.children;
     let prevSibling: Fiber | null = null;
 
     for(let index = 0 ; index < children.length || oldFiber; index++){
@@ -199,7 +235,7 @@ function reconcileFiber(wipFiber: Fiber){
 
 /* The loop will run when idle */
 
-function createDom(element:BasicOUOElement): DOM {
+function createDom(element:HostFiber): DOM {
 
     if(element.type === "TEXT_ELEMENT"){
         return document.createTextNode(element.props.nodeValue);

@@ -1,3 +1,7 @@
+export function WTF({name}:{name:string}) {
+    return <div>{name}</div>
+}
+
 export function main() {
   return <h1>
       <div class="wtf">hello</div>
@@ -10,6 +14,7 @@ export function main() {
           <button onclick={()=> {
               console.log("clicked");
           }}>clicked</button>
+          <WTF name={"wtf"}/>
       </div>
   </h1>
 }

@@ -1,10 +1,11 @@
 export type JSXTags = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "div" | "span" | "p" | "button" | "input" | "a";
 export type RawChild = string | OUOElement;
 export type RawChildren = RawChild[];
-export type OUOElement = TextElemenet | DOMElement;
+export type OUOHostElement = TextElemenet | DOMElement;
+export type OUOElement = OUOHostElement | FunctionElement;
 
 export interface BasicOUOElement {
-    type: string;
+    type: string | Function;
     props: {
         children: BasicOUOElement[];
         [key: string]: any;
@@ -21,6 +22,14 @@ interface TextElemenet extends BasicOUOElement{
 
 interface DOMElement extends BasicOUOElement{
     type: JSXTags;
+    props: {
+        children: OUOElement[];
+        [key: string]: any;
+    };
+}
+
+interface FunctionElement extends BasicOUOElement{
+    type: Function;
     props: {
         children: OUOElement[];
         [key: string]: any;
