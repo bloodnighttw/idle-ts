@@ -1,9 +1,10 @@
-import {OUO} from "@/lib/ouo";
+import {renderElement} from "@/lib/dom";
 import app from "@/jsx/main";
 
 const container = document.getElementById('root');
 
-console.log("vdom",app())
+const vdom = app();
 
+console.log("vdom",vdom)
 
-OUO.renderElement(app(),container)
+renderElement(vdom,container)
