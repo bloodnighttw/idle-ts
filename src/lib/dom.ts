@@ -8,6 +8,7 @@ interface Fiber extends BasicOUOElement{
     child?: Fiber | null;
     sibling?: Fiber | null;
     alternate?: Fiber | null;
+    hook?: any[];
     effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
 }
 
@@ -28,12 +29,14 @@ let deletions: Fiber[] | null = null;
 const longestTimeToRun = 5;
 
 function commitRoot(){
+    console.log("commit start")
     console.log("current",currentRoot);
     console.log("wip",wipRoot);
     deletions!.forEach(commitWork);
     commitWork(wipRoot!.child!);
     currentRoot = wipRoot;
     wipRoot = null;
+    console.log("commit done")
 }
 
 function commitDeletion(fiber: Fiber, parentDom?: DOM){
@@ -149,11 +152,57 @@ function updateHostComponent(fiber: HostFiber){
     reconcileFiber(fiber);
 }
 
+let wipFiber: Fiber | null = null;
+let hookIndex = 0;
 
 function updateFunctionComponent(fiber: FunctionFiber){
 
+    wipFiber = fiber;
+    hookIndex = 0;
+    wipFiber.hook = []
+
     const children = [fiber.type(fiber.props)];
     reconcileFiber(fiber, children);
+}
+
+export function useState<T>(initial: T): [T, (newState: T) => void]{
+    const oldHook:{
+        state: T,
+        queue: T[]
+    } | undefined = wipFiber?.alternate?.hook?.[hookIndex];
+    const hook: {
+        state: T,
+        queue: T[]
+    } = {
+        state: oldHook?.state ?? initial,
+        queue: []
+    }
+
+    const actions = oldHook?.queue ?? [];
+    actions.forEach(value => {
+        console.log("wtf")
+        hook.state = value;
+    })
+
+    const setState = (value: T) => {
+        console.log("setState", value)
+        hook.queue.push(value);
+        // @ts-ignore
+        wipRoot = {
+            dom: currentRoot!.dom!,
+            props: currentRoot!.props!,
+            alternate: currentRoot!,
+        }
+        nextUnitOfWork = wipRoot;
+        deletions = [];
+    }
+
+    wipFiber?.hook?.push(hook);
+    hookIndex++;
+
+
+
+    return [hook.state, setState]
 }
 
 
@@ -184,7 +233,7 @@ function performUnitOfWork(fiber: Fiber){
 }
 
 function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
-    const oldFiber = wipFiber.alternate?.child;
+    let oldFiber = wipFiber.alternate?.child;
     children = children ?? wipFiber.props.children;
     let prevSibling: Fiber | null = null;
 
@@ -192,12 +241,16 @@ function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
         const element = children[index];
         let newFiber: Fiber | null = null;
 
-        const sameType = oldFiber && element && element.type === oldFiber.type;
+        const sameType = oldFiber &&
+            element &&
+            element.type === oldFiber.type;
 
         // update old fiber with new props
         if(sameType){
+            // @ts-ignore
             newFiber = {
-                ...oldFiber,
+                type: oldFiber!.type,
+                dom: oldFiber!.dom,
                 props: element.props,
                 alternate: oldFiber,
                 parent: wipFiber,
@@ -223,6 +276,11 @@ function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
             deletions!.push(oldFiber);
         }
 
+        if(oldFiber){
+            oldFiber = oldFiber.sibling
+        }
+
+        console.log("ouo",index,prevSibling, newFiber)
         if(index === 0) {
             wipFiber.child = newFiber;
         } else {

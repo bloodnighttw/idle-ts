@@ -1,21 +1,17 @@
+import {useState} from "@/lib/dom.ts";
+
 export function WTF({name}:{name:string}) {
     return <div>{name}</div>
 }
 
 export function main() {
+    const [t, setT] = useState(0);
+
   return <h1>
-      <div class="wtf">hello</div>
-      <div>world</div>
-      <div>
-          happy happy happy!
-        <div onClick={()=>console.log("clicked")}>
-            This is the my react-clone library!
-        </div>
-          <button onclick={()=> {
-              console.log("clicked");
-          }}>clicked</button>
-          <WTF name={"wtf"}/>
-      </div>
+      <div>{t.toString()}</div>
+      <button onclick={()=> {
+          setT(t+1)
+      }}>clicked</button>
   </h1>
 }
 
