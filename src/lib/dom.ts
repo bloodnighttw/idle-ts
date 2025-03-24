@@ -85,8 +85,6 @@ interface Props{
 
 function updateDom(dom: DOM, prevProps: Props, nextProps: Props){
 
-    console.log("update dom",dom, prevProps, nextProps)
-
     // remove old or changed properties
     Object.keys(dom)
         .filter(isProperty)
@@ -170,10 +168,6 @@ function updateFunctionComponent(fiber: FunctionFiber){
 
 export function useState<T>(initial: T): [T, (newState: T) => void]{
 
-    // won't call when the component is rerendered
-
-    console.log("hook")
-
     const oldHook:{ state: T } | undefined = wipFiber?.alternate?.hook?.[hookIndex];
     const hook: {
         state: T,
@@ -181,8 +175,8 @@ export function useState<T>(initial: T): [T, (newState: T) => void]{
         state: oldHook?.state ?? initial,
     }
 
-
     const setState = (value: T) => {
+        console.log("setState",value)
         hook.state = value;
         // @ts-ignore
         wipRoot = {

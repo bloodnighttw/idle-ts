@@ -1,17 +1,14 @@
 import {useState} from "@/lib/dom.ts";
 
-export function WTF({name}:{name:string}) {
-    return <div>{name}</div>
-}
-
 export function main() {
     const [t, setT] = useState(0);
 
-  return <h1>
+  return <div>
+      <div>{t.toString()}</div>
       <button onclick={()=> {
           setT(t+1)
-      }}>{ t === 0 ? "zero" : "not zero"}</button>
-  </h1>
+      }}>{ t % 2 === 0 ? "increase + 1" : "increase with 1"}</button>
+  </div>
 }
 
 export default main;
