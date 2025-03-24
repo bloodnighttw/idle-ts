@@ -3,17 +3,25 @@ export type RawChild = string | OUOElement;
 export type RawChildren = RawChild[];
 export type OUOElement = TextElemenet | DOMElement;
 
-interface TextElemenet {
-    type: "TEXT_ELEMENT";
+export interface BasicOUOElement {
+    type: string;
     props: {
-        nodeValue: string;
+        children: BasicOUOElement[];
+        [key: string]: any;
     }
 }
 
-interface DOMElement {
+interface TextElemenet extends BasicOUOElement{
+    type: "TEXT_ELEMENT";
+    props: {
+        nodeValue: string;
+        children: [];
+    }
+}
+
+interface DOMElement extends BasicOUOElement{
     type: JSXTags;
     props: {
-        nodeValue?: string;
         children: OUOElement[];
         [key: string]: any;
     };
