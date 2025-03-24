@@ -4,9 +4,12 @@ export function main() {
       <div>world</div>
       <div>
           happy happy happy!
-        <div>
+        <div onClick={()=>console.log("clicked")}>
             This is the my react-clone library!
         </div>
+          <button onclick={()=> {
+              console.log("clicked");
+          }}>clicked</button>
       </div>
   </h1>
 }
