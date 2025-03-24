@@ -5,6 +5,7 @@ type DOM = HTMLElement | Text;
 interface Fiber extends BasicOUOElement{
     dom?: DOM;
     parent?: Fiber | null;
+    // children fiber
     child?: Fiber | null;
     sibling?: Fiber | null;
     alternate?: Fiber | null;
@@ -83,6 +84,8 @@ interface Props{
 }
 
 function updateDom(dom: DOM, prevProps: Props, nextProps: Props){
+
+    console.log("update dom",dom, prevProps, nextProps)
 
     // remove old or changed properties
     Object.keys(dom)
@@ -166,27 +169,21 @@ function updateFunctionComponent(fiber: FunctionFiber){
 }
 
 export function useState<T>(initial: T): [T, (newState: T) => void]{
-    const oldHook:{
-        state: T,
-        queue: T[]
-    } | undefined = wipFiber?.alternate?.hook?.[hookIndex];
+
+    // won't call when the component is rerendered
+
+    console.log("hook")
+
+    const oldHook:{ state: T } | undefined = wipFiber?.alternate?.hook?.[hookIndex];
     const hook: {
         state: T,
-        queue: T[]
     } = {
         state: oldHook?.state ?? initial,
-        queue: []
     }
 
-    const actions = oldHook?.queue ?? [];
-    actions.forEach(value => {
-        console.log("wtf")
-        hook.state = value;
-    })
 
     const setState = (value: T) => {
-        console.log("setState", value)
-        hook.queue.push(value);
+        hook.state = value;
         // @ts-ignore
         wipRoot = {
             dom: currentRoot!.dom!,
@@ -280,7 +277,6 @@ function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
             oldFiber = oldFiber.sibling
         }
 
-        console.log("ouo",index,prevSibling, newFiber)
         if(index === 0) {
             wipFiber.child = newFiber;
         } else {

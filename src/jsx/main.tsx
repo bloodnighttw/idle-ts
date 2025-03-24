@@ -8,10 +8,9 @@ export function main() {
     const [t, setT] = useState(0);
 
   return <h1>
-      <div>{t.toString()}</div>
       <button onclick={()=> {
           setT(t+1)
-      }}>clicked</button>
+      }}>{ t === 0 ? "zero" : "not zero"}</button>
   </h1>
 }
 
