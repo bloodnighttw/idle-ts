@@ -13,6 +13,7 @@ interface Fiber extends BasicOUOElement{
 
 let nextUnitOfWork: Fiber | null = null;
 let wipRoot: Fiber | null = null;
+const longestTimeToRun = 5;
 
 function commitRoot(){
     commitWork(wipRoot!.child!);
@@ -31,13 +32,10 @@ function commitWork(fiber?: Fiber){
     commitWork(fiber.sibling!);
 }
 
+function fiberLoop(timestamp: number){
 
-
-function fiberLoop(deadline:IdleDeadline){
-    let shouldYield = false;
-    while ( nextUnitOfWork && !shouldYield ){
+    while ( nextUnitOfWork && (performance.now() - timestamp ) < longestTimeToRun){
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
-        shouldYield = deadline.timeRemaining() < 1;
     }
 
     // update the dom
@@ -45,11 +43,15 @@ function fiberLoop(deadline:IdleDeadline){
         commitRoot();
     }
 
-    requestIdleCallback(fiberLoop);
+    requestAnimationFrame(fiberLoop);
 }
 
 // start the loop
-requestIdleCallback(fiberLoop);
+// note: the original tutorial uses requestIdleCallback,
+// but it is not supported in all browsers(like safari)
+// and react also not using it.
+// ( react uses a scheduler package based on requestAnimationFrame to handle this)
+requestAnimationFrame(fiberLoop);
 
 function performUnitOfWork(fiber: Fiber){
 
