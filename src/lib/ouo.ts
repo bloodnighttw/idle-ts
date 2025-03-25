@@ -62,3 +62,17 @@ export function createElement<T>(type:JSXTags | Function, props?:T | null, ...ra
         }
     }
 }
+
+declare global {
+    namespace JSX {
+        interface IntrinsicElements {
+            [elemName: string]: any;
+        }
+    }
+
+    interface Window {
+        createElement: typeof createElement;
+    }
+}
+
+window.createElement = createElement;

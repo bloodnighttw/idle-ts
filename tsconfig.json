@@ -22,8 +22,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-      "jsx": "react-jsx",
-      "jsxImportSource": "@/lib",
+    "jsx": "react",
+    "jsxFactory": "window.createElement"
   },
   "include": ["src"]
 }
