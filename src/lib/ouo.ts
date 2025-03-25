@@ -37,7 +37,7 @@ interface FunctionElement extends BasicOUOElement{
 }
 
 
-export function createElement<T>(type:JSXTags | Function, props?:T, ...rawChildren: RawChildren) : OUOElement{
+export function createElement<T>(type:JSXTags | Function, props?:T | null, ...rawChildren: RawChildren) : OUOElement{
 
     const children: OUOElement[] = rawChildren.map(child => {
 

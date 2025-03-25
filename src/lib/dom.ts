@@ -1,5 +1,11 @@
 import {BasicOUOElement, OUOElement} from "@/lib/ouo.ts";
 
+/* ===========================================
+ * Type Definitions
+ * ===========================================
+ */
+
+// the dom element type we use
 type DOM = HTMLElement | Text;
 
 interface Fiber extends BasicOUOElement{
@@ -21,14 +27,99 @@ interface FunctionFiber extends Fiber{
     type: Function;
 }
 
-/* The loop will run when idle */
+interface Props{
+    [key: string]: any;
+}
 
+/* ===========================================
+ * Global Variables
+ * ===========================================
+ */
+
+// the next unit of work
 let nextUnitOfWork: Fiber | null = null;
-let wipRoot: Fiber | null = null;
+// the current root of the fiber tree
 let currentRoot: Fiber | null = null;
+// the wip root of the fiber tree
+let wipRoot: Fiber | null = null;
+// the fiber to delete
 let deletions: Fiber[] | null = null;
+// the longest time to process unit of work
 const longestTimeToRun = 5;
 
+
+let wipFiber: Fiber | null = null;
+let hookIndex = 0;
+
+/* ===========================================
+ * The Fiber Loop
+ * ===========================================
+ */
+
+function fiberLoop(timestamp: number){
+
+    while ( nextUnitOfWork && (performance.now() - timestamp ) < longestTimeToRun){
+        nextUnitOfWork && console.log("work" ,nextUnitOfWork);
+        nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+    }
+
+    // if all the work is done, commit the root
+    if(!nextUnitOfWork && wipRoot){
+        commitRoot();
+    }
+
+    requestAnimationFrame(fiberLoop);
+}
+
+
+// start the loop
+// note: the original tutorial uses requestIdleCallback,
+// but it is not supported in all browsers(like safari)
+// and react also not using it.
+// ( react uses a scheduler package based on requestAnimationFrame to handle this)
+requestAnimationFrame(fiberLoop);
+
+
+/* ===========================================
+ * Perform Unit of Work Functions
+ * we run it in the loop to avoid blocking the
+ * main thread.
+ * ===========================================
+ */
+function performUnitOfWork(fiber: Fiber){
+
+    if(fiber.type instanceof Function){
+        updateFunctionComponent(fiber as FunctionFiber);
+    } else {
+        updateHostComponent(fiber as HostFiber);
+    }
+
+    // 1. If there is a child, return the child
+    if(fiber.child){
+        return fiber.child;
+    }
+
+    // 2. If there is a sibling, return next sibling
+    let ptr: Fiber | undefined | null = fiber;
+    while(ptr){
+        if(ptr.sibling){
+            return ptr.sibling;
+        }
+        // 3. If there is a parent, return the parent's sibling
+        ptr = ptr.parent;
+    }
+
+    return null;
+}
+
+/* ===========================================
+ * Commit Changes Functions
+ * we do crud operation on the real dom with
+ * these functions.
+ * ===========================================
+ */
+
+// commit the change from wip root vdom to real dom
 function commitRoot(){
     console.log("commit start")
     console.log("current",currentRoot);
@@ -40,6 +131,7 @@ function commitRoot(){
     console.log("commit done")
 }
 
+// commit the deletion from real dom
 function commitDeletion(fiber: Fiber, parentDom?: DOM){
     if(fiber.dom){
         fiber.dom.parentNode?.removeChild(fiber.dom);
@@ -48,6 +140,7 @@ function commitDeletion(fiber: Fiber, parentDom?: DOM){
     }
 }
 
+// commit the change from wip vdom to real dom
 function commitWork(fiber?: Fiber){
     if(!fiber){
         return;
@@ -69,19 +162,78 @@ function commitWork(fiber?: Fiber){
         commitDeletion(fiber, domParent);
     }
 
-
     commitWork(fiber.child!);
     commitWork(fiber.sibling!);
 }
 
+
+/* ===========================================
+ * Reconcile Fiber
+ * ===========================================
+ */
+function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
+    let oldFiber = wipFiber.alternate?.child;
+    children = children ?? wipFiber.props.children;
+    let prevSibling: Fiber | null = null;
+
+    for(let index = 0 ; index < children.length || oldFiber; index++, oldFiber = oldFiber?.sibling){
+        const element = children[index];
+        let newFiber: Fiber | null = null;
+
+        const sameType = oldFiber &&
+            element &&
+            element.type === oldFiber.type;
+
+        // update old fiber with new props
+        if(sameType){
+            // @ts-ignore
+            newFiber = {
+                type: oldFiber!.type,
+                dom: oldFiber!.dom,
+                props: element.props,
+                alternate: oldFiber,
+                parent: wipFiber,
+                effectTag: "UPDATE",
+            }
+        }
+
+        // generate a new fiber
+        if(element && !sameType){
+            newFiber = {
+                type: element.type,
+                props: element.props,
+                dom: undefined,
+                parent: wipFiber,
+                alternate: null,
+                effectTag: "PLACEMENT",
+            }
+        }
+
+        // delete old fiber
+        if(oldFiber && !sameType){
+            oldFiber.effectTag = "DELETION";
+            deletions!.push(oldFiber);
+        }
+
+        if(index === 0) {
+            wipFiber.child = newFiber;
+        } else {
+            prevSibling!.sibling = newFiber;
+        }
+
+        prevSibling = newFiber;
+    }
+}
+
+
+/* ===========================================
+ * Helper Functions
+ * ===========================================
+ */
 const isEvent = (key: string) => key.startsWith("on");
 const isProperty = (key: string) => key !== "children" && !isEvent(key);
 const isNew = (prev: any, next: any) => (key: string) => prev[key] !== next[key];
 const isGone = (_prev: any, next: any) => (key: string) => !(key in next);
-
-interface Props{
-    [key: string]: any;
-}
 
 function updateDom(dom: DOM, prevProps: Props, nextProps: Props){
 
@@ -123,27 +275,6 @@ function updateDom(dom: DOM, prevProps: Props, nextProps: Props){
 
 }
 
-function fiberLoop(timestamp: number){
-
-    while ( nextUnitOfWork && (performance.now() - timestamp ) < longestTimeToRun){
-        nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
-    }
-
-    // update the dom
-    if(!nextUnitOfWork && wipRoot){
-        commitRoot();
-    }
-
-    requestAnimationFrame(fiberLoop);
-}
-
-// start the loop
-// note: the original tutorial uses requestIdleCallback,
-// but it is not supported in all browsers(like safari)
-// and react also not using it.
-// ( react uses a scheduler package based on requestAnimationFrame to handle this)
-requestAnimationFrame(fiberLoop);
-
 function updateHostComponent(fiber: HostFiber){
 
     if(!fiber.dom){
@@ -152,9 +283,6 @@ function updateHostComponent(fiber: HostFiber){
 
     reconcileFiber(fiber);
 }
-
-let wipFiber: Fiber | null = null;
-let hookIndex = 0;
 
 function updateFunctionComponent(fiber: FunctionFiber){
 
@@ -165,123 +293,6 @@ function updateFunctionComponent(fiber: FunctionFiber){
     const children = [fiber.type(fiber.props)];
     reconcileFiber(fiber, children);
 }
-
-export function useState<T>(initial: T): [T, (newState: T) => void]{
-
-    const oldHook:{ state: T } | undefined = wipFiber?.alternate?.hook?.[hookIndex];
-    const hook: {
-        state: T,
-    } = {
-        state: oldHook?.state ?? initial,
-    }
-
-    const setState = (value: T) => {
-        console.log("setState",value)
-        hook.state = value;
-        // @ts-ignore
-        wipRoot = {
-            dom: currentRoot!.dom!,
-            props: currentRoot!.props!,
-            alternate: currentRoot!,
-        }
-        nextUnitOfWork = wipRoot;
-        deletions = [];
-    }
-
-    wipFiber?.hook?.push(hook);
-    hookIndex++;
-
-
-
-    return [hook.state, setState]
-}
-
-
-function performUnitOfWork(fiber: Fiber){
-
-    if(fiber.type instanceof Function){
-        updateFunctionComponent(fiber as FunctionFiber);
-    } else {
-        updateHostComponent(fiber as HostFiber);
-    }
-
-    // 1. If there is a child, return the child
-    if(fiber.child){
-        return fiber.child;
-    }
-
-    // 2. If there is a sibling, return next sibling
-    let ptr: Fiber | undefined | null = fiber;
-    while(ptr){
-        if(ptr.sibling){
-            return ptr.sibling;
-        }
-        // 3. If there is a parent, return the parent's sibling
-        ptr = ptr.parent;
-    }
-
-    return null;
-}
-
-function reconcileFiber(wipFiber: Fiber, children?: BasicOUOElement[]){
-    let oldFiber = wipFiber.alternate?.child;
-    children = children ?? wipFiber.props.children;
-    let prevSibling: Fiber | null = null;
-
-    for(let index = 0 ; index < children.length || oldFiber; index++){
-        const element = children[index];
-        let newFiber: Fiber | null = null;
-
-        const sameType = oldFiber &&
-            element &&
-            element.type === oldFiber.type;
-
-        // update old fiber with new props
-        if(sameType){
-            // @ts-ignore
-            newFiber = {
-                type: oldFiber!.type,
-                dom: oldFiber!.dom,
-                props: element.props,
-                alternate: oldFiber,
-                parent: wipFiber,
-                effectTag: "UPDATE",
-            }
-        }
-
-        // generate a new fiber
-        if(element && !sameType){
-            newFiber = {
-                type: element.type,
-                props: element.props,
-                dom: undefined,
-                parent: wipFiber,
-                alternate: null,
-                effectTag: "PLACEMENT",
-            }
-        }
-
-        // delete old fiber
-        if(oldFiber && !sameType){
-            oldFiber.effectTag = "DELETION";
-            deletions!.push(oldFiber);
-        }
-
-        if(oldFiber){
-            oldFiber = oldFiber.sibling
-        }
-
-        if(index === 0) {
-            wipFiber.child = newFiber;
-        } else {
-            prevSibling!.sibling = newFiber;
-        }
-
-        prevSibling = newFiber;
-    }
-}
-
-/* The loop will run when idle */
 
 function createDom(element:HostFiber): DOM {
 
@@ -309,7 +320,12 @@ function createDom(element:HostFiber): DOM {
     return domElement;
 }
 
-
+/* ===========================================
+ * Render Functions
+ * we use this function to begin the rendering
+ * process.
+ * ===========================================
+ */
 export function renderElement(element:OUOElement , parent:HTMLElement | null){
 
     wipRoot = {
@@ -318,9 +334,40 @@ export function renderElement(element:OUOElement , parent:HTMLElement | null){
         props: {
             children: [element]
         },
-        alternate: currentRoot
     }
 
     deletions = [];
     nextUnitOfWork = wipRoot;
+}
+
+/* ===========================================
+ * useState
+ * ===========================================
+ */
+export function useState<T>(initial: T): [T, (newState: T) => void]{
+
+    const oldHook:{ state: T } | undefined = wipFiber?.alternate?.hook?.[hookIndex];
+    const hook: {
+        state: T,
+    } = {
+        state: oldHook?.state ?? initial,
+    }
+
+    const setState = (value: T) => {
+        console.log("setState",value)
+        hook.state = value;
+        wipRoot = {
+            type: "ROOT_ELEMENT",
+            dom: currentRoot!.dom!,
+            props: currentRoot!.props!,
+            alternate: currentRoot!,
+        }
+        nextUnitOfWork = wipRoot;
+        deletions = [];
+    }
+
+    wipFiber?.hook?.push(hook);
+    hookIndex++;
+
+    return [hook.state, setState]
 }
