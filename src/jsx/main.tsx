@@ -1,23 +1,27 @@
 import {useState} from "@/lib/dom.ts";
+import "./ouo.css"
+import OUO from "./vite.svg"
 
-export function WTF() {
+export function Counter() {
     const [state, setState] = useState(0);
 
-    return <div onclick={()=>setState(state+1)}>{state.toString()}</div>
+    return <div>
+        <div>
+            {state.toString()}
+        </div>
+        <div class="button" onclick={()=>setState(state+1)}>
+            click me
+        </div>
+    </div>
 }
 
-export function main() {
-    const [t, setT] = useState(0);
-    let random = Math.random();
-
+function main() {
   return <div>
-      <div>{t.toString()}</div>
-      <button onclick={()=> {
-          setT(t+1)
-      }}>{ t % 2 === 0 ? "increase + 1" : "increase with 1"}</button>
-      <hr/>
-        <WTF/>
-      <p>{random.toString()}</p>
+      <img src={OUO}/>
+      <div>Build with Typescript, Vite, and my React-clone Library.</div>
+      <div>Below is a simple counter using useState and my library.</div>
+      <div>see <a href="https://github.com/bloodnighttw/idle-ts">here</a> to see the source code.</div>
+      <Counter/>
   </div>
 }
 
